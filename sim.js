@@ -37,6 +37,7 @@ function makeCity(){
     ));
     b.doorSide=["top","bottom","left","right"][Math.floor(Math.random()*4)];
     b.doorSize=18;
+    b.health=100;
     walls.push(b);
   }
 }
@@ -110,6 +111,24 @@ function nearestBuilding(p){
 }
 
 function nearestDead(p){let target=null,md=1e9;for(const q of people)if(q.dead){const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}return target;}
+function onlyHidersRemain(){
+  return people.some(p=>!p.dead&&!p.infected&&!p.inside)===false && people.some(p=>!p.dead&&!p.infected&&p.inside);
+}
+function damageBuildings(){
+  if(!onlyHidersRemain())return;
+  for(const b of walls){
+    const hiders=people.filter(p=>p.inside&&p.building===b&&!p.dead&&!p.infected);
+    if(!hiders.length)continue;
+    const zombie=people.find(p=>p.infected&&!p.dead&&!p.inside&&Math.hypot(p.x-(b.x+b.w/2),p.y-(b.y+b.h/2))<90);
+    if(zombie){
+      b.health-=0.7;
+      if(b.health<=0){
+        for(const p of hiders)leaveBuilding(p);
+        walls=walls.filter(w=>w!==b);
+      }
+    }
+  }
+}
 function step(){
   for(const p of people){
     if(p.cool>0)p.cool--;
@@ -175,6 +194,8 @@ function step(){
     }
   }
   bullets=bullets.filter(b=>b.life>0&&b.x>-10&&b.x<c.width+10&&b.y>-10&&b.y<c.height+10);
+
+  damageBuildings();
 
   for(const a of people)if(a.infected&&!a.inside)for(const b of people)if(!b.infected&&!b.dead&&!b.inside){
     const d=Math.hypot(a.x-b.x,a.y-b.y);
