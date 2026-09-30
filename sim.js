@@ -1,5 +1,5 @@
 const c=document.getElementById("sim"),x=c.getContext("2d");
-let people=[],paused=false,infectChance=.12,defence=0,walls=[],roads=[],bullets=[];
+let people=[],paused=false,infectChance=.12,defence=0,walls=[],roads=[],bullets=[],revived=0;
 
 function hit(a,b){
   return a.x+a.r>b.x&&a.x-a.r<b.x+b.w&&a.y+a.r>b.y&&a.y-a.r<b.y+b.h;
@@ -70,7 +70,7 @@ function reset(){
     let p={
       x:15+Math.random()*870,y:15+Math.random()*570,r:8,vx:0,vy:0,
       infected:false,defender:Math.random()<defence,cool:Math.random()*30,
-      trait:Math.random()<.6?"scared":null,inside:false,building:null
+      trait:Math.random()<.6?"scared":null,inside:false,building:null,medic:Math.random()<.12,revives:0
     };
     let tries=0;
     while(walls.some(w=>hit(p,w))&&tries++<500){
@@ -80,7 +80,7 @@ function reset(){
   }
   if(people.length){
     people[0].infected=true;
-    people[0].defender=false;
+    people[0].defender=false; people[0].medic=false;
     people[0].trait=null;
   }
 }
@@ -109,10 +109,10 @@ function nearestBuilding(p){
   return target;
 }
 
-function step(){
+function nearestDead(p){let target=null,md=1e9;for(const q of people)if(q.dead){const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}return target;}\nfunction step(){
   for(const p of people){
     if(p.cool>0)p.cool--;
-    if(p.dead)continue;
+    if(p.dead)continue;\n    if(p.medic&&!p.inside&&p.revives<3){const corpse=nearestDead(p);if(corpse){const d=Math.hypot(corpse.x-p.x,corpse.y-p.y);if(d<140){const dx=corpse.x-p.x,dy=corpse.y-p.y,dd=Math.hypot(dx,dy)||1;p.vx+=dx/dd*.08;p.vy+=dy/dd*.08;if(d<18){corpse.dead=false;corpse.infected=true;corpse.defender=false;corpse.medic=false;corpse.trait=null;p.revives++;revived++;}}}}
 
     // Scared civilians hide inside the nearest building when danger is nearby.
     if(!p.infected&&!p.defender&&p.trait==="scared"&&!p.inside){
@@ -143,7 +143,7 @@ function step(){
         const d=Math.hypot(q.x-p.x,q.y-p.y);
         if(d<md){md=d;target=q}
       }
-    }else if(p.defender){
+    }else if(p.medic){p.vx+=(Math.random()-.5)*.18;p.vy+=(Math.random()-.5)*.18;}else if(p.defender){
       target=nearestInfected(p);
       if(target)shoot(p,target);
     }else if(!p.trait){
@@ -179,7 +179,7 @@ function step(){
     if(d<=16){b.infected=true;b.defender=false;b.trait=null}
     else if(d<=30&&Math.random()<infectChance){b.infected=true;b.defender=false;b.trait=null}
   }
-  people=people.filter(p=>!p.dead);
+  
 }
 
 function draw(){
@@ -215,7 +215,7 @@ function draw(){
   for(const p of people){
     if(p.inside)continue;
     x.beginPath();
-    x.fillStyle=p.infected?"#35c759":p.defender?"#4da3ff":"#ffd83d";
+    x.fillStyle=p.infected?"#35c759":p.medic?"#ffffff":p.defender?"#4da3ff":"#ffd83d";
     x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fill();
 
     x.fillStyle="#111";x.beginPath();
@@ -237,9 +237,9 @@ function draw(){
 
   const inf=people.filter(p=>p.infected).length;
   const def=people.filter(p=>p.defender&&!p.infected).length;
-  const hidden=people.filter(p=>p.inside&&!p.infected).length;
+  const hidden=people.filter(p=>p.inside&&!p.dead&&!p.infected).length;const med=people.filter(p=>p.medic&&!p.dead).length;
   document.getElementById("stats").textContent=
-    `Population: ${people.length} | Infected: ${inf} | Healthy: ${people.length-inf} | Active defenders: ${def} | Hidden: ${hidden}`;
+    `Population: ${people.length} | Infected: ${inf} | Healthy: ${people.length-inf} | Active defenders: ${def} | Hidden: ${hidden} | Medics: ${med} | Revived: ${revived}`;
 }
 
 function loop(){if(!paused)step();draw();requestAnimationFrame(loop)}
