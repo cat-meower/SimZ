@@ -1,12 +1,19 @@
-const c=document.getElementById("sim"),x=c.getContext("2d");let people=[],paused=false,infectChance=.12;
+const c=document.getElementById("sim"),x=c.getContext("2d");let people=[],paused=false,infectChance=.12,defence=0;
 const walls=[{x:70,y:70,w:250,h:18},{x:500,y:70,w:300,h:18},{x:170,y:180,w:18,h:220},{x:420,y:150,w:18,h:300},{x:650,y:180,w:18,h:250},{x:70,y:480,w:260,h:18},{x:500,y:500,w:300,h:18}];
-function hit(a,b){return a.x+ a.r>b.x&&a.x-a.r<b.x+b.w&&a.y+a.r>b.y&&a.y-a.r<b.y+b.h}
+function hit(a,b){return a.x+a.r>b.x&&a.x-a.r<b.x+b.w&&a.y+a.r>b.y&&a.y-a.r<b.y+b.h}
 function blocked(p,nx,ny){return walls.some(w=>hit({x:nx,y:ny,r:p.r},w))}
-function reset(){people=[];let n=+document.getElementById("count").value||45;for(let i=0;i<n;i++){let p={x:30+Math.random()*840,y:30+Math.random()*540,r:8,vx:0,vy:0,infected:false};while(walls.some(w=>hit(p,w))){p.x=30+Math.random()*840;p.y=30+Math.random()*540}people.push(p)}people[0].infected=true}
-function step(){for(const p of people){let target=null,md=1e9;if(p.infected){for(const q of people)if(!q.infected){let d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}}else{p.vx+=(Math.random()-.5)*.5;p.vy+=(Math.random()-.5)*.5}
-if(target){let dx=target.x-p.x,dy=target.y-p.y,d=Math.hypot(dx,dy)||1;p.vx+=dx/d*.12;p.vy+=dy/d*.12}
+function reset(){people=[];let n=+document.getElementById("count").value||45;for(let i=0;i<n;i++){let p={x:30+Math.random()*840,y:30+Math.random()*540,r:8,vx:0,vy:0,infected:false,defender:Math.random()<defence};while(walls.some(w=>hit(p,w))){p.x=30+Math.random()*840;p.y=30+Math.random()*540}people.push(p)}if(people.length)people[0].infected=true}
+function shoot(def,target){let dx=target.x-def.x,dy=target.y-def.y,d=Math.hypot(dx,dy)||1;def.vx+=dx/d*.025;def.vy+=dy/d*.025;return d<125&&Math.random()<.035}
+function step(){for(const p of people){let target=null,md=1e9;if(p.infected&&!p.defender){for(const q of people)if(!q.infected){let d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}}else if(p.defender&&!p.infected){for(const q of people)if(q.infected){let d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}if(target&&shoot(p,target)){target.dead=true}}else{p.vx+=(Math.random()-.5)*.5;p.vy+=(Math.random()-.5)*.5}
+if(target&&!p.dead&&!p.defender){let dx=target.x-p.x,dy=target.y-p.y,d=Math.hypot(dx,dy)||1;p.vx+=dx/d*.12;p.vy+=dy/d*.12}
 let sp=Math.hypot(p.vx,p.vy);if(sp>1.8){p.vx=p.vx/sp*1.8;p.vy=p.vy/sp*1.8}
 let nx=p.x+p.vx,ny=p.y+p.vy;if(blocked(p,nx,p.y)){p.vx*=-.8;nx=p.x}if(blocked(p,nx,ny)){p.vy*=-.8;ny=p.y}p.x=Math.max(p.r,Math.min(c.width-p.r,nx));p.y=Math.max(p.r,Math.min(c.height-p.r,ny))}
-for(const a of people)if(a.infected)for(const b of people)if(!b.infected){let d=Math.hypot(a.x-b.x,a.y-b.y);if(d<=16 && Math.random()<infectChance)b.infected=true}}
-function draw(){x.clearRect(0,0,c.width,c.height);x.fillStyle="#777";for(const w of walls)x.fillRect(w.x,w.y,w.w,w.h);for(const p of people){x.beginPath();x.fillStyle=p.infected?"#35c759":"#ffd83d";x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fill();x.fillStyle="#111";x.beginPath();x.arc(p.x-3,p.y-2,1.5,0,7);x.arc(p.x+3,p.y-2,1.5,0,7);x.fill()}let inf=people.filter(p=>p.infected).length;document.getElementById("stats").textContent=`Population: ${people.length} | Infected: ${inf} | Healthy: ${people.length-inf}`}
-function loop(){if(!paused)step();draw();requestAnimationFrame(loop)}document.getElementById("reset").onclick=reset;document.getElementById("pause").onclick=()=>{paused=!paused;document.getElementById("pause").textContent=paused?"Resume":"Pause"};document.getElementById("chance").oninput=e=>infectChance=+e.target.value;reset();loop();
+for(const a of people)if(a.infected&&!a.defender)for(const b of people)if(!b.infected&&!b.dead){let d=Math.hypot(a.x-b.x,a.y-b.y);if(d<=16)b.infected=true;else if(d<=30&&Math.random()<infectChance)b.infected=true}
+people=people.filter(p=>!p.dead)}
+function draw(){x.clearRect(0,0,c.width,c.height);x.fillStyle="#777";for(const w of walls)x.fillRect(w.x,w.y,w.w,w.h);for(const p of people){x.beginPath();x.fillStyle=p.infected?"#35c759":p.defender?"#4da3ff":"#ffd83d";x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fill();x.fillStyle="#111";x.beginPath();x.arc(p.x-3,p.y-2,1.5,0,7);x.arc(p.x+3,p.y-2,1.5,0,7);x.fill();if(p.defender&&!p.infected){x.strokeStyle="#111";x.lineWidth=2;x.beginPath();x.moveTo(p.x+5,p.y);x.lineTo(p.x+13,p.y);x.stroke()}}let inf=people.filter(p=>p.infected).length,def=people.filter(p=>p.defender&&!p.infected).length;document.getElementById("stats").textContent=`Population: ${people.length} | Infected: ${inf} | Healthy: ${people.length-inf} | Active defenders: ${def}`}
+function loop(){if(!paused)step();draw();requestAnimationFrame(loop)}
+document.getElementById("reset").onclick=reset;document.getElementById("pause").onclick=()=>{paused=!paused;document.getElementById("pause").textContent=paused?"Resume":"Pause"};
+document.getElementById("count").oninput=e=>{document.getElementById("countVal").textContent=e.target.value};
+document.getElementById("chance").oninput=e=>{infectChance=+e.target.value/100;document.getElementById("chanceVal").textContent=e.target.value+"%"};
+document.getElementById("defence").oninput=e=>{defence=+e.target.value/100;document.getElementById("defenceVal").textContent=e.target.value+"%"};
+reset();loop();
