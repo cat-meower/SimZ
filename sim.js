@@ -109,10 +109,12 @@ function nearestBuilding(p){
   return target;
 }
 
-function nearestDead(p){let target=null,md=1e9;for(const q of people)if(q.dead){const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}return target;}\nfunction step(){
+function nearestDead(p){let target=null,md=1e9;for(const q of people)if(q.dead){const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<md){md=d;target=q}}return target;}
+function step(){
   for(const p of people){
     if(p.cool>0)p.cool--;
-    if(p.dead)continue;\n    if(p.medic&&!p.inside&&p.revives<3){const corpse=nearestDead(p);if(corpse){const d=Math.hypot(corpse.x-p.x,corpse.y-p.y);if(d<140){const dx=corpse.x-p.x,dy=corpse.y-p.y,dd=Math.hypot(dx,dy)||1;p.vx+=dx/dd*.08;p.vy+=dy/dd*.08;if(d<18){corpse.dead=false;corpse.infected=false;corpse.defender=false;corpse.medic=false;corpse.trait=Math.random()<.6?"scared":null;p.revives++;revived++;}}}}
+    if(p.dead)continue;
+    if(p.medic&&!p.inside&&p.revives<3){const corpse=nearestDead(p);if(corpse){const d=Math.hypot(corpse.x-p.x,corpse.y-p.y);if(d<140){const dx=corpse.x-p.x,dy=corpse.y-p.y,dd=Math.hypot(dx,dy)||1;p.vx+=dx/dd*.08;p.vy+=dy/dd*.08;if(d<18){corpse.dead=false;corpse.infected=false;corpse.defender=false;corpse.medic=false;corpse.trait=Math.random()<.6?"scared":null;p.revives++;revived++;}}}}
 
     // Scared civilians hide inside the nearest building when danger is nearby.
     if(!p.infected&&!p.defender&&p.trait==="scared"&&!p.inside){
