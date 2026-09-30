@@ -37,7 +37,7 @@ function makeCity(){
     ));
     b.doorSide=["top","bottom","left","right"][Math.floor(Math.random()*4)];
     b.doorSize=18;
-    b.health=100;
+    b.health=100;b.cracks=[];b.debris=[];
     walls.push(b);
   }
 }
@@ -114,6 +114,15 @@ function nearestDead(p){let target=null,md=1e9;for(const q of people)if(q.dead){
 function onlyHidersRemain(){
   return people.some(p=>!p.dead&&!p.infected&&!p.inside)===false && people.some(p=>!p.dead&&!p.infected&&p.inside);
 }
+function addCrack(b){
+  const x0=b.x+Math.random()*b.w,y0=b.y+Math.random()*b.h;
+  const crack={x:x0,y:y0,parts:[]};
+  for(let i=0;i<3+Math.floor(Math.random()*4);i++)crack.parts.push({x:x0+(Math.random()-.5)*18,y:y0+(Math.random()-.5)*18});
+  b.cracks.push(crack);
+}
+function crumbleBuilding(b){
+  for(let i=0;i<18;i++)b.debris.push({x:b.x+Math.random()*b.w,y:b.y+Math.random()*b.h,vx:(Math.random()-.5)*3,vy:-Math.random()*3-1,life:30+Math.random()*30});
+}
 function damageBuildings(){
   if(!onlyHidersRemain())return;
   for(const b of walls){
@@ -122,7 +131,9 @@ function damageBuildings(){
     const zombie=people.find(p=>p.infected&&!p.dead&&!p.inside&&Math.hypot(p.x-(b.x+b.w/2),p.y-(b.y+b.h/2))<90);
     if(zombie){
       b.health-=0.7;
+      if(Math.random()<0.08)addCrack(b);
       if(b.health<=0){
+        crumbleBuilding(b);
         for(const p of hiders)leaveBuilding(p);
         walls=walls.filter(w=>w!==b);
       }
@@ -214,7 +225,7 @@ function draw(){
 
   // Buildings now have visible color, doors, and simple windows.
   for(const w of walls){
-    x.fillStyle="#9a6b4f";x.fillRect(w.x,w.y,w.w,w.h);
+    x.fillStyle=w.health<100?"#89604a":"#9a6b4f";x.fillRect(w.x,w.y,w.w,w.h);
     x.fillStyle="#c58b62";x.fillRect(w.x+4,w.y+4,w.w-8,6);
 
     x.fillStyle="#d8c7a8";
@@ -224,12 +235,20 @@ function draw(){
     if(w.doorSide==="left")x.fillRect(w.x,d.y-9,5,18);
     if(w.doorSide==="right")x.fillRect(w.x+w.w-5,d.y-9,5,18);
 
+    x.strokeStyle="#3b2922";x.lineWidth=2;
+    for(const crack of w.cracks){x.beginPath();x.moveTo(crack.x,crack.y);for(const pt of crack.parts)x.lineTo(pt.x,pt.y);x.stroke()}
+
     x.fillStyle="#6c8795";
     const cols=Math.max(1,Math.floor(w.w/28)),rows=Math.max(1,Math.floor(w.h/28));
     for(let ix=0;ix<cols;ix++)for(let iy=0;iy<rows;iy++){
       const wx=w.x+12+ix*28,wy=w.y+16+iy*28;
       if(wx<w.x+w.w-7&&wy<w.y+w.h-7)x.fillRect(wx,wy,9,7);
     }
+  }
+
+  for(const w of walls){
+    for(const d of w.debris){d.x+=d.vx;d.y+=d.vy;d.vy+=.15;d.life--;x.fillStyle="#9a6b4f";x.fillRect(d.x,d.y,4,4)}
+    w.debris=w.debris.filter(d=>d.life>0);
   }
 
   x.fillStyle="#ffd84d";
